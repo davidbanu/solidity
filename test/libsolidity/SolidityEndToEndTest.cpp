@@ -1960,6 +1960,21 @@ BOOST_AUTO_TEST_CASE(balance)
 	ABI_CHECK(callContractFunction("getBalance()"), encodeArgs(23));
 }
 
+BOOST_AUTO_TEST_CASE(blocknumber)
+{
+	char const* sourceCode = R"(
+		contract test {
+			function getBlockNumber() public view returns (uint256 blockNumber) {
+				blockNumber = block.number;
+			}
+		}
+	)";
+	compileAndRun(sourceCode);
+	u256 startBlock = m_blockNumber;
+	for (u256 block = startBlock; block < startBlock + 10; block++)
+		ABI_CHECK(callContractFunction("getBlockNumber()"), encodeArgs(block + 1));
+}
+
 BOOST_AUTO_TEST_CASE(blockchain)
 {
 	char const* sourceCode = R"(
@@ -3037,6 +3052,21 @@ BOOST_AUTO_TEST_CASE(gasprice)
 	ABI_CHECK(callContractFunction("f()"), encodeArgs(gasPrice()));
 }
 
+BOOST_AUTO_TEST_CASE(blockhash_single)
+{
+	char const* sourceCode = R"(
+		contract C {
+			function f() public returns (bytes32 r) {
+				r = blockhash(block.number - 1);
+			}
+		}
+	)";
+	compileAndRun(sourceCode);
+	u256 blockNumber = m_blockNumber;
+	auto hash = blockHash(blockNumber);
+	ABI_CHECK(callContractFunction("f()"), encodeArgs(hash));
+}
+
 BOOST_AUTO_TEST_CASE(blockhash)
 {
 	char const* sourceCode = R"(
@@ -3052,31 +3082,18 @@ BOOST_AUTO_TEST_CASE(blockhash)
 	)";
 	compileAndRun(sourceCode);
 	// generate a sufficient amount of blocks
-	while (blockNumber() < u256(255))
+	while (m_blockNumber < u256(255))
 		ABI_CHECK(callContractFunction("g()"), encodeArgs(true));
 
 	vector<u256> hashes;
-	// currently the test only works for pre-constantinople
-	if (Options::get().evmVersion() < EVMVersion::constantinople())
-	{
-		// ``blockhash()`` is only valid for the last 256 blocks, otherwise zero
-		hashes.emplace_back(0);
-		for (u256 i = blockNumber() - u256(255); i <= blockNumber(); i++)
-			hashes.emplace_back(blockHash(i));
-		// the current block hash is not yet known at execution time and therefore zero
-		hashes.emplace_back(0);
-		// future block hashes are zero
-		hashes.emplace_back(0);
-	}
-	else
-		// TODO: Starting from constantinople blockhash always seems to return zero.
-		// The blockhash contract introduced in EIP96 seems to break in our setup of
-		// aleth (setting the constantinople fork block to zero and resetting the chain
-		// to block zero before each test run). Pre-deploying the blockchain contract
-		// during genesis seems to help, but currently causes problems with other tests.
-		// Set the expectation to zero for now, so that this test tracks changes in this
-		// behavior.
-		hashes.assign(259, 0);
+	// ``blockhash()`` is only valid for the last 256 blocks, otherwise zero
+	hashes.emplace_back(0);
+	for (u256 i = m_blockNumber - u256(255); i <= m_blockNumber; i++)
+		hashes.emplace_back(blockHash(i));
+	// the current block hash is not yet known at execution time and therefore zero
+	hashes.emplace_back(0);
+	// future block hashes are zero
+	hashes.emplace_back(0);
 
 	ABI_CHECK(callContractFunction("f()"), encodeDyn(hashes));
 }
