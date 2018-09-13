@@ -89,3 +89,118 @@ This section lists changes where the code now needs to be more explicit.
   modifier) is disallowed as a security feature. Turn the function into
   ``payable`` or create a new internal function for the program logic that
   uses ``msg.value``.
+
+Example
+=======
+
+The following example shows a contract and its updated version for Solidity
+v0.5.0.
+Old version:
+
+::
+
+   pragma solidity ^0.4.24;
+
+   contract OtherContract {
+      uint x;
+      function f(uint y) external {
+         x = y;
+      }
+      function() payable external {}
+   }
+
+   contract Old {
+      OtherContract other;
+      uint myNumber;
+
+      // Function visibility not provided, not an error
+      // Function mutability not provided, not an error
+      function f(uint x) {
+         y = -3 >> 1; // y = -1 (wrong, should be -2)
+
+         do {
+            x += 1;
+            if (x > 10) continue;
+         } while (x < 11); // causes infinite loop
+
+         bool success = other.call("f"); // Call returns only a Bool
+         if (!success)
+            revert();
+         else {
+            int y; // Local variables could be declared after their use
+         }
+      }
+
+      function g(uint[] arr, bytes8 x, OtherContract otherContract) public { // No need to explicit parameter location data
+         otherContract.transfer(1 ether);
+
+         // Since uint32 (4 bytes) is smaller than bytes8 (8 bytes),
+         // the first 4 bytes of x will be lost. This is dangerous
+         // since bytesX are right padded.
+         uint32 y = uint32(x);
+         myNumber += y + msg.value;
+      }
+   }
+
+New version:
+
+::
+
+   pragma solidity >0.4.24;
+
+   contract OtherContract {
+      uint x;
+      function f(uint y) external {
+         x = y;
+      }
+      function() payable external {}
+   }
+
+   contract New {
+      OtherContract other;
+      uint myNumber;
+
+      // Function visibility not provided, not an error
+      // Function mutability not provided, not an error
+      function f(uint x) public returns (bytes memory) {
+         int y = -3 >> 1; // y = -2 (correct)
+
+         do {
+            x += 1;
+            if (x > 10) continue; // jumps to the condition below
+         } while (x < 11);
+
+         // Call returns (bool, bytes)
+         // Data location must be specified
+         (bool success, bytes memory data) = address(other).call("f");
+         if (!success)
+            revert();
+         return data;
+      }
+
+      using address_make_payable for address;
+      function g(uint[] memory arr, bytes8 x, OtherContract otherContract) public payable { // No need to explicit parameter location data
+         // 'contract.transfer' is not provided
+         // 'address(contract).transfer' is not provided since 'address(contract)' is not 'address payable'.
+         // So we need to convert variable 'contract' to type 'address payable'.
+         address payable addr = address(otherContract).make_payable();
+         addr.transfer(1 ether);
+
+         // Since uint32 (4 bytes) is smaller than bytes8 (8 bytes),
+         // the conversion is not allowed.
+         // We need to convert to a common size first:
+         bytes4 x4 = bytes4(x); // Padding happens on the right
+         uint32 y = uint32(x4); // Conversion is consistent
+         // 'msg.value' cannot be used in a 'non-payable' function
+         // We need to make the function payable
+         myNumber += y + msg.value;
+      }
+   }
+
+   // We can define a library for explicitly converting ``address``
+   // to ``address payable`` as a workaround.
+   library address_make_payable {
+      function make_payable(address x) internal pure returns (address payable) {
+         return address(uint160(x));
+      }
+   }
