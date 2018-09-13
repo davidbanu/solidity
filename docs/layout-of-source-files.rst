@@ -2,15 +2,23 @@
 Layout of a Solidity Source File
 ********************************
 
-Source files can contain an arbitrary number of contract definitions, include directives
-and pragma directives.
+Source files can contain an arbitrary number of
+:ref:`contract definitions<contract_structure>`, import_ directives
+and :ref:`pragma directives<pragma>`.
+
+.. index:: ! pragma
+
+.. _pragma:
+
+Pragmas
+=======
 
 .. index:: ! pragma, version
 
 .. _version_pragma:
 
 Version Pragma
-==============
+--------------
 
 Source files can (and should) be annotated with a so-called version pragma to reject
 being compiled with future compiler versions that might introduce incompatible
@@ -34,6 +42,35 @@ the exact version of the compiler, so that bugfix releases are still possible.
 
 It is possible to specify much more complex rules for the compiler version,
 the expression follows those used by `npm <https://docs.npmjs.com/misc/semver>`_.
+
+.. index:: ! pragma, experimental
+
+.. _experimental_pragma:
+
+Experimental Pragma
+-------------------
+
+The second pragma is the experimental pragma. It can be used to enable
+features of the compiler or language that are not yet officially active.
+The following experimental pragmas are currently supported:
+
+
+ABIEncoderV2
+~~~~~~~~~~~~
+
+The new ABI encoder is able to encode and decode arbitrarily nested
+arrays and structs. It produces less optimal code (the optimizer
+for this part of the code is still under development) and has not
+received as much testing as the old encoder. You can activate it
+using ``pragma exprimental ABIEncoderV2;``.
+
+SMTChecker
+~~~~~~~~~~
+
+This component is not available in all Solidity binaries. If you use
+``pragma experimental SMTChecker;``, then you will get additional
+safety warnings which are obtained by querying an SMT solver.
+The component does not yet support all features of the Solidity language.
 
 .. index:: source file, ! import
 
